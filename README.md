@@ -91,6 +91,65 @@ This uses the webpack build path to ensure stability.
 
 ---
 
+## Deploy (AWS Amplify Hosting)
+
+The simplest AWS deployment path for this prototype is Amplify Hosting with SSR support.
+
+### 1. Connect the repo
+
+- Open AWS Amplify
+- Create a new app
+- Choose your Git provider
+- Select this repository and branch
+
+### 2. Amplify build settings
+
+This repo includes an `amplify.yml` file, so Amplify can use the project build settings directly.
+
+### 3. Add environment variables
+
+Set these in Amplify for the branch you deploy:
+
+```text
+APP_BASE_URL=https://<your-amplify-domain>
+MOCK_MARKETPLACE_WEBHOOK_SECRET=<your-shared-secret>
+NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET=<same-shared-secret>
+```
+
+Important:
+
+- `MOCK_MARKETPLACE_WEBHOOK_SECRET` and `NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET` must match
+- `APP_BASE_URL` should be the final deployed Amplify URL or custom domain
+
+### 4. Give the SSR runtime access to DynamoDB
+
+Your Amplify SSR compute role must have permission to:
+
+- read and write the `Listings` table
+- read and write the `ActivityFeed` table
+
+This app uses the default AWS credential chain through the Amplify SSR IAM role.
+
+Do not commit or use AWS access keys in this repo for deployment.
+
+You should not add these as Amplify environment variables:
+
+- `APP_AWS_ACCESS_KEY_ID`
+- `APP_AWS_SECRET_ACCESS_KEY`
+
+If the IAM role is configured correctly, the AWS SDK will pick up credentials automatically.
+
+### 5. Deploy
+
+- Save and deploy the branch in Amplify
+- Amplify will install dependencies and run:
+
+```bash
+npm run build
+```
+
+---
+
 ## DynamoDB Setup
 
 Create two tables:
@@ -108,6 +167,12 @@ Make sure your AWS region is:
 ```text
 us-east-2
 ```
+
+For local development, DynamoDB access should come from your normal AWS SDK credentials setup, for example:
+
+- `aws configure`
+- an AWS profile in `~/.aws/credentials`
+- temporary shell credentials
 
 ---
 

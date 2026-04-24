@@ -15,11 +15,12 @@ const BUYER_COMMENTS = [
 ];
 const lastCommentIndexByListing = new Map<string, number>();
 
-function getAppBaseUrl(): string {
-  return (process.env.APP_BASE_URL ?? "http://localhost:3000").replace(
-    /\/$/,
-    "",
-  );
+function getAppBaseUrl(request: Request): string {
+  return (
+    process.env.APP_BASE_URL ??
+    new URL(request.url).origin ??
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
 }
 
 function getWebhookSecret(): string {
@@ -55,11 +56,16 @@ function getFollowUpDelay(): number {
   return Math.floor(Math.random() * 10000) + 25000;
 }
 
-function sendBuyerComment(listingId: string, message: string, delay: number) {
+function sendBuyerComment(
+  listingId: string,
+  message: string,
+  delay: number,
+  appBaseUrl: string,
+) {
   setTimeout(() => {
     const createdAt = new Date().toISOString();
 
-    void fetch(`${getAppBaseUrl()}/api/webhooks/mock-marketplace`, {
+    void fetch(`${appBaseUrl}/api/webhooks/mock-marketplace`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -82,6 +88,7 @@ function sendBuyerComment(listingId: string, message: string, delay: number) {
 export async function POST(request: Request): Promise<Response> {
   const body = (await request.json()) as PublishRequest;
   const { listingId, title, description, price } = body;
+  const appBaseUrl = getAppBaseUrl(request);
 
   if (!listingId || !title || !description || price === undefined) {
     return Response.json(
@@ -112,6 +119,7 @@ export async function POST(request: Request): Promise<Response> {
       listingId,
       getNextBuyerComment(listingId),
       getInitialDelay(),
+      appBaseUrl,
     );
 
     if (Math.random() < 0.35) {
@@ -119,6 +127,7 @@ export async function POST(request: Request): Promise<Response> {
         listingId,
         getNextBuyerComment(listingId),
         getFollowUpDelay(),
+        appBaseUrl,
       );
     }
   }

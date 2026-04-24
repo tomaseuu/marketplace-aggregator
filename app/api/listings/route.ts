@@ -16,11 +16,12 @@ const client = new DynamoDBClient({
 
 const docClient = DynamoDBDocumentClient.from(client);
 
-function getAppBaseUrl(): string {
-  return (process.env.APP_BASE_URL ?? "http://localhost:3000").replace(
-    /\/$/,
-    "",
-  );
+function getAppBaseUrl(request: Request): string {
+  return (
+    process.env.APP_BASE_URL ??
+    new URL(request.url).origin ??
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
 }
 
 function normalizeCondition(value: unknown): string {
@@ -87,7 +88,7 @@ export async function POST(request: Request): Promise<Response> {
 
       try {
         const publishResponse = await fetch(
-          `${getAppBaseUrl()}/api/mock-marketplace/publish`,
+          `${getAppBaseUrl(request)}/api/mock-marketplace/publish`,
           {
             method: "POST",
             headers: {
