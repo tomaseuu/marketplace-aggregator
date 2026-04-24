@@ -1,6 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
+  GetCommand,
   PutCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
@@ -11,21 +12,34 @@ const client = new DynamoDBClient({
 });
 
 const docClient = DynamoDBDocumentClient.from(client);
+const ALLOWED_EVENT_TYPES = new Set(["item_sold", "new_comment"]);
+// In deployment, keep this aligned with NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET
+// so the Backbook simulator and webhook receiver agree on the shared secret.
+const DEFAULT_WEBHOOK_SECRET = "dev-secret";
 
 function getDefaultMessage(eventType: string): string {
   if (eventType === "item_sold") {
-    return "Item sold on marketplace";
+    return "Item sold on Backbook";
   }
 
   if (eventType === "new_comment") {
-    return "New comment received from marketplace";
+    return "New comment from Backbook";
   }
 
-  return "Marketplace event received";
+  return "Backbook event received";
 }
 
 export async function POST(request: Request): Promise<Response> {
-  const { listingId, eventType, message } = await request.json();
+  const expectedSecret =
+    process.env.MOCK_MARKETPLACE_WEBHOOK_SECRET ?? DEFAULT_WEBHOOK_SECRET;
+  const receivedSecret = request.headers.get("x-mock-marketplace-secret");
+
+  if (receivedSecret !== expectedSecret) {
+    return Response.json({ error: "Invalid webhook secret" }, { status: 401 });
+  }
+
+  const { listingId, eventType, message, eventId, idempotencyKey, createdAt } =
+    await request.json();
 
   if (!listingId) {
     return Response.json(
@@ -41,15 +55,48 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
+  if (!ALLOWED_EVENT_TYPES.has(eventType)) {
+    return Response.json(
+      { error: "Unsupported eventType" },
+      { status: 400 },
+    );
+  }
+
+  const resolvedMessage = message || getDefaultMessage(eventType);
+  const resolvedCreatedAt =
+    typeof createdAt === "string" && createdAt
+      ? createdAt
+      : new Date().toISOString();
+  const resolvedEventId =
+    eventId ||
+    idempotencyKey ||
+    (listingId && eventType
+      ? `${listingId}:${eventType}:${resolvedMessage}:${resolvedCreatedAt}`
+      : uuidv4());
+
   const newEvent = {
-    id: uuidv4(),
+    id: resolvedEventId,
     listingId,
     eventType,
-    message: message || getDefaultMessage(eventType),
-    createdAt: new Date().toISOString(),
+    message: resolvedMessage,
+    createdAt: resolvedCreatedAt,
   };
 
   try {
+    const existingEvent = await docClient.send(
+      new GetCommand({
+        TableName: "ActivityFeed",
+        Key: { id: resolvedEventId },
+      }),
+    );
+
+    if (existingEvent.Item) {
+      return Response.json({
+        success: true,
+        duplicate: true,
+      });
+    }
+
     await docClient.send(
       new PutCommand({
         TableName: "ActivityFeed",

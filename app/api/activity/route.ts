@@ -1,6 +1,10 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
 
+type ActivityRecord = {
+  createdAt?: string;
+};
+
 const client = new DynamoDBClient({
   region: "us-east-2",
 });
@@ -11,27 +15,31 @@ export async function GET(request: Request): Promise<Response> {
   const { searchParams } = new URL(request.url);
   const listingId = searchParams.get("listingId");
 
-  if (!listingId) {
-    return Response.json(
-      { error: "Missing required query parameter: listingId" },
-      { status: 400 },
-    );
-  }
-
   try {
     const result = await docClient.send(
       new ScanCommand({
         TableName: "ActivityFeed",
-        FilterExpression: "listingId = :listingId",
-        ExpressionAttributeValues: {
-          ":listingId": listingId,
-        },
+        ...(listingId
+          ? {
+              FilterExpression: "listingId = :listingId",
+              ExpressionAttributeValues: {
+                ":listingId": listingId,
+              },
+            }
+          : {}),
       }),
+    );
+    const activity = (result.Items ?? []) as ActivityRecord[];
+
+    activity.sort(
+      (a, b) =>
+        new Date(b.createdAt ?? 0).getTime() -
+        new Date(a.createdAt ?? 0).getTime(),
     );
 
     return Response.json({
       success: true,
-      activity: result.Items || [],
+      activity,
     });
   } catch (error) {
     console.error("DynamoDB Activity GET error:", error);
