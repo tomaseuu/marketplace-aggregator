@@ -7,8 +7,17 @@ type ActivityRecord = {
   createdAt?: string;
 };
 
+const credentials =
+  process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
+    ? {
+        accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
+      }
+    : undefined;
+
 const client = new DynamoDBClient({
   region: "us-east-2",
+  credentials,
 });
 
 const docClient = DynamoDBDocumentClient.from(client);
