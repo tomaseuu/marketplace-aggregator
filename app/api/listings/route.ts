@@ -17,11 +17,14 @@ const client = new DynamoDBClient({
 const docClient = DynamoDBDocumentClient.from(client);
 
 function getAppBaseUrl(request: Request): string {
-  return (
-    process.env.APP_BASE_URL ??
-    new URL(request.url).origin ??
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
+  if (process.env.APP_BASE_URL) {
+    return process.env.APP_BASE_URL.replace(/\/$/, "");
+  }
+
+  const protocol = request.headers.get("x-forwarded-proto") || "https";
+  const host = request.headers.get("host") || new URL(request.url).host;
+
+  return `${protocol}://${host}`.replace(/\/$/, "");
 }
 
 function normalizeCondition(value: unknown): string {
@@ -90,7 +93,6 @@ export async function POST(request: Request): Promise<Response> {
         const appBaseUrl = getAppBaseUrl(request);
         const publishUrl = `${appBaseUrl}/api/mock-marketplace/publish`;
 
-        console.log("Resolved APP_BASE_URL for publish:", appBaseUrl);
         console.log("Mock marketplace publish URL:", publishUrl);
 
         const publishResponse = await fetch(publishUrl, {
@@ -132,9 +134,7 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         publishAccepted =
-          publishResponse.ok &&
-          publishResult.success === true &&
-          publishResult.status === "accepted";
+          publishResponse.ok && publishResult.success === true;
 
         if (!publishAccepted) {
           console.error("Mock marketplace publish was not accepted:", {
