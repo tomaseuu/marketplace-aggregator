@@ -1,112 +1,84 @@
 # Approach
 
-## Overview
+## Summary
 
-I spent around 6–8 hours on this project, and my main goal was to keep everything simple but still show how a real system like this would work.
+I took an API-driven approach for this project.
 
-The idea is that instead of posting your item on multiple marketplaces like Facebook or eBay, you just use one app. That app sends your listing out and then listens for anything that happens, like comments or a sale, and shows everything in one place.
+The seller uses one app to create a listing, and the backend acts as a wrapper between our seller app and the marketplace. That gives us a clean boundary between our app and Backbook instead of mixing marketplace logic directly into the UI.
 
-I did not want to overcomplicate it, so I focused on:
+The basic idea is simple:
 
-- making the flow easy to understand
-- keeping a clean separation between my app and the marketplace
-- making sure everything actually works end-to-end
+1. Create a listing in our app.
+2. Save it.
+3. Send it to the marketplace through the backend.
+4. Receive events back through a webhook.
+5. Show the result in one activity feed.
 
----
+## Why This Shape
 
-## Understanding the Problem
+The main problem is that sellers should not have to post the same item over and over in different places or keep checking separate apps for messages and sales.
 
-The main problem is that sellers have to:
+So I kept the core flow focused on:
 
-- post the same listing multiple times
-- check different apps for messages or sales
+- create once
+- publish through an API
+- receive events back
+- show everything in one place
 
-This gets messy fast.
-
-So the goal of this app is:
-
-- create a listing once
-- send it to a marketplace
-- and then track everything in one place
-
----
-
-## How I Thought About It
-
-Before coding, I spent time planning:
-
-- user flow
-- basic architecture
-- what data I needed
-- what the fake marketplace should actually do
-
-My mental model was:
-
-> The user creates a listing → we save it → we send it → we wait → something happens → we get notified → we show it.
-
-That helped keep everything simple and guided all my decisions.
-
----
+That keeps the system easy to understand and gives us a good base for adding more marketplaces later.
 
 ## Architecture
 
-![Architecture Diagram](./images/methodology.png)
+- Frontend: Next.js + TypeScript
+- Backend: Next.js API routes deployed through AWS Amplify SSR/server-side compute
+- Database: DynamoDB
+- Deployment: AWS Amplify Hosting
+- Access: Amplify compute IAM role for DynamoDB access
 
-## User Flow
+The backend is the important piece here. It works like a wrapper between the seller app and Backbook, so the UI talks to our own API routes and our API routes handle the marketplace-facing behavior.
 
-![User Flow](./images/userflow.png)
+## App Boundary
 
----
+I split the system into two parts.
 
-## System Design
+### 1. Seller App
 
-I split the system into two parts:
+This is our app. It handles:
 
-### 1. Seller App (my system)
+- creating listings
+- storing listings in DynamoDB
+- sending publish requests
+- receiving webhook events
+- showing activity to the seller
 
-This is the main app where:
+### 2. Backbook
 
-- users create listings
-- listings are saved in DynamoDB
-- publish requests are sent
-- webhook events are received
-- activity is shown in the UI
+Backbook is the mocked marketplace.
 
----
+- It is conceptually based on Facebook Marketplace.
+- It stands in for an external marketplace so we can demo the flow end to end.
+- It accepts listings, fails sometimes, and sends events back like comments and sales.
 
-### 2. Mock Marketplace (Backbook)
+Keeping Backbook separate helps show the real design idea: our app owns the seller experience, and the backend handles the marketplace integration boundary.
 
-This is a fake marketplace that acts like a real external system.
+## Data Model
 
-- it has its own page (`/backbook`)
-- it only shows listings that were successfully published
-- it can:
-  - simulate a sale
-  - simulate comments
-- it sends events back to my backend using a webhook
-
-This separation was important because I did not want the seller UI to directly control marketplace events. It should feel like an external system.
-
----
-
-## Data Modeling
-
-I kept this simple with two tables:
+I kept the data model small with two DynamoDB tables in `us-east-2`.
 
 ### Listings
 
-Stores:
+Stores listing details like:
 
-- title, description, price
+- title
+- description
+- price
 - condition
-- marketplaces
-- status (active, published, sold)
-
----
+- status
+- selected marketplace
 
 ### ActivityFeed
 
-Stores everything that happens:
+Stores important events like:
 
 - publish_requested
 - publish_accepted
@@ -114,200 +86,91 @@ Stores everything that happens:
 - item_sold
 - new_comment
 
-I also added an `eventId` (idempotency key) so duplicate webhook events do not get stored twice.
+This gives the seller one place to see what happened without mixing all of that into the listing record itself.
 
----
+## Reference Marketplace
 
-## Publish Flow
+Backbook is loosely modeled after Facebook Marketplace because that is an easy mental model for a person reading or testing the demo.
 
-When a user creates a listing:
+It is still a mock, not a real integration.
 
-1. It gets saved immediately
-2. The backend sends it to the mock marketplace
-3. The marketplace:
-   - has a 20% chance to fail
-   - otherwise accepts the listing
+In a real system, each marketplace adapter would need more work, including:
 
-Then I store the result in:
+- OAuth or API tokens
+- rate limits
+- webhook verification
+- marketplace-specific edge cases
+- different payload formats and failure modes
 
-- the listing status
-- the activity feed
+That is another reason I kept the backend as a wrapper. It gives us a clean place to add those differences later.
 
-This simulates how real APIs behave without making it too complex.
+## Safety
 
----
+I kept the safety model basic but real enough for a prototype:
 
-## Async Behavior
+- DynamoDB access uses an IAM compute role
+- no AWS keys are committed in the repo
+- the webhook uses a shared secret
+- event types are validated
+- basic idempotency uses `eventId` or `idempotencyKey`
 
-I wanted to show that marketplaces do not respond instantly.
+For production, I would not rely only on direct retries inside request flow. A better production setup would use SQS and a dead-letter queue for retries and failure handling.
 
-So:
+## Cost
 
-- after a listing is accepted, the marketplace may send a comment later
-- users can also manually trigger:
-  - a sale
-  - a comment
+At prototype scale, this stays cheap.
 
-This shows how external systems send events after the initial request.
+For something like:
 
-Note:
-In a real system, this would use queues or background jobs instead of simple timeouts.
+- 10 sellers
+- 1,000 listings
+- 10,000 events
 
----
+the rough cost should still be low because:
 
-## Webhooks
+- DynamoDB on-demand is inexpensive at that volume
+- Amplify Hosting is light for a small frontend
+- Amplify SSR/server-side compute stays cheap when request volume is low
 
-I used a webhook to receive events from the mock marketplace.
+The first cost wall would usually come from:
 
-To make it safer:
+- high polling frequency
+- more SSR compute calls
+- images or other media storage and delivery (involving s3 buckets)
 
-- I added a shared secret (`x-mock-marketplace-secret`)
-- I only allow certain event types
-- I added idempotency so duplicate events do not get stored
-
-This is a simplified version of how real systems handle webhooks.
-
----
-
-## Product Decisions (What I Added)
-
-I also tried to make small decisions that make the app feel more usable and realistic.
-
-### Simple and Minimal UI
-
-I designed the seller dashboard to feel clean and minimal, similar to something like Notion:
-
-- simple layout
-- easy to scan
-- not too many colors or distractions
-
-The goal was to make it easy for someone to quickly understand what is happening with their listings.
-
----
-
-### Activity Feed Focus
-
-Instead of just showing raw data, I focused on:
-
-- clear activity messages
-- newest events at the top
-- making it obvious what happened and when
-
-This helps the user quickly understand the state of their listing.
-
----
-
-### Notification System
-
-I added a basic notification system so:
-
-- new activity shows up in a notification panel
-- users can click a notification
-- it scrolls to the related listing
-- the listing gets highlighted for a few seconds
-
-This makes it easier to find what changed instead of manually searching through the page.
-
----
-
-### Listing Management
-
-I added small but important features:
-
-- delete listing (in case the user changes their mind)
-- condition tags (like new, used, etc.)
-- marketplace selection (choose where to publish)
-
-These are small things, but they make the app feel more real in my opinion.
-
----
-
-### Backbook UX
-
-For the mock marketplace:
-
-- I made it feel like a simple Facebook-style marketplace (mainly just the color)
-- used a clean card layout
-- added simple interactions like:
-  - simulate sale
-  - add comment
-
-This helps show the separation between systems while still being easy to demo.
-
----
-
-## AWS + Setup Thoughts
-
-I used DynamoDB because:
-
-- it is simple
-- easy to set up
-- cheap for this type of project
-
-Setting up AWS was honestly one of the harder parts.
-
-I had issues with:
-
-- IAM setup
-- AWS CLI config
-- mixing different SST versions
-
-At one point SST kept crashing because my config file was wrong.
-
-The fix was:
-
-- resetting to a minimal working config
-- making sure I was using the correct version
-
-After that, everything worked fine.
-
----
-
-## Cost Considerations
-
-I tried to keep everything lightweight:
-
-- DynamoDB only
-- no heavy compute
-- no background workers
-- limited polling
-
-This should cost basically nothing per day for a prototype.
-
----
+So for a demo or prototype, DynamoDB plus Amplify is a good fit.
 
 ## Tradeoffs
 
-To keep the project simple, I made a few tradeoffs:
+To keep the project small and understandable, I cut a few things on purpose:
 
-- async behavior is simulated, not fully reliable in serverless
-- polling instead of real-time updates
-- no images (optional in prompt)
-- no queue system for retries
+- images, because they were optional and not core to the flow
+- real marketplace OAuth or API calls
+- queue-based retry infrastructure
+- full auth and multi-user handling
 
-I focused more on clarity and correctness than completeness.
+That let me focus on the core architecture and the end-to-end event flow.
 
----
+## Build Next
 
-## What I Would Do Next
+If I kept going, I would add:
 
-If I had more time, I would:
+- SQS - simple queue service: app would be able to drop a task into the queue and handle it safely in the background
+- DLQ handling - dead letter queue, backup bin for failed jobs
+- better retry logic
+- auth
+- S3 image uploads
+- WebSockets or SSE - a full live chat both ways and a server live updates
+- multiple marketplace adapters
 
-- replace polling with WebSockets or SSE
-- use a queue like SQS for async processing
-- add better retry handling
-- improve notifications further
-- support multiple marketplaces more fully
-- add image uploads using S3 bucket
+That would move the project from a clean prototype toward a more production-ready system.
 
----
+## Final Thought
 
-## Final Thoughts
+The main thing I wanted to show was not just a UI. I wanted to show a clean system boundary:
 
-My main goal was to show how systems interact:
+- our app owns the seller workflow
+- the backend wraps marketplace behavior
+- the marketplace sends events back through a webhook
 
-- separating internal app vs external marketplace
-- handling async behavior
-- reacting to events through webhooks
-
-I tried to keep everything simple, clean, and realistic enough to show how this would work in a real system.
+That makes the design easier to extend, easier to reason about, and closer to how a real integration system would be built. But honestly, this was super fun to do!

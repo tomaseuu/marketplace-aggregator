@@ -1,40 +1,33 @@
 # Marketplace Aggregator (Backbook Demo)
 
-This is a simple full-stack prototype where a seller can create a listing, send it to a mock marketplace (Backbook), and then receive events back like comments or a sale.
+This is a simple full-stack prototype where a seller creates a listing, sends it to a mock marketplace called Backbook, and then gets events back like comments or a sale.
 
-The goal of this project is to show a clean system where we:
+The goal is to show a clean flow where we:
 
 - create listings
 - send them to an external marketplace
-- react to events coming back
-
----
+- receive events back through a webhook
+- show everything in one seller dashboard
 
 ## What This Does
 
 1. Seller creates a listing.
-2. Backend saves it in DynamoDB.
-3. Backend sends it to a mock marketplace, Backbook.
-4. The marketplace:
-   - sometimes fails, simulating real APIs
-   - sometimes accepts the listing
-5. If accepted:
-   - the listing shows up in Backbook
-   - the marketplace can send events back, such as a comment or sale
+2. The backend saves it in DynamoDB.
+3. The backend sends it to Backbook through an API route.
+4. Backbook either accepts or fails the publish request.
+5. If accepted, Backbook can send events back later.
 6. The webhook receives those events.
-7. The seller dashboard activity feed updates.
-
----
+7. The activity feed updates in the seller app.
 
 ## Tech Stack
 
 - Next.js (App Router)
 - TypeScript
-- DynamoDB (AWS)
-- API Routes (serverless-style)
-- No real marketplace APIs used, mock only
-
----
+- Next.js API routes
+- AWS Amplify Hosting
+- Amplify SSR/server-side compute for backend routes
+- DynamoDB
+- Mock marketplace only, no real marketplace API
 
 ## Setup (Local)
 
@@ -53,106 +46,87 @@ npm install
 
 3. Create `.env.local`.
 
-```bash
+```text
 APP_BASE_URL=http://localhost:3000
 MOCK_MARKETPLACE_WEBHOOK_SECRET=dev-secret
 NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET=dev-secret
 ```
 
-Note:
-In deployment, both of these must match:
+These two secret values should stay the same:
 
 - `MOCK_MARKETPLACE_WEBHOOK_SECRET`
 - `NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET`
 
-4. Run the app.
+4. Make sure you have AWS credentials available locally through the normal AWS SDK credential chain, like `aws configure` or an AWS profile.
+
+5. Create the DynamoDB tables in `us-east-2`:
+
+- `Listings`
+- `ActivityFeed`
+
+6. Run the app.
 
 ```bash
 npm run dev
 ```
 
-5. Open in the browser:
+7. Open:
 
 ```text
 http://localhost:3000
 ```
 
----
+## Environment Variables
+
+Use these values locally or in deployment, with `APP_BASE_URL` set to the correct URL for that environment:
+
+```text
+APP_BASE_URL=<deployed Amplify URL>
+MOCK_MARKETPLACE_WEBHOOK_SECRET=dev-secret
+NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET=dev-secret
+```
 
 ## Build
 
-To verify the project builds:
+To verify the app builds:
 
 ```bash
 npm run build
 ```
 
-This uses the webpack build path to ensure stability.
+## AWS Deployment
 
----
+The final deployment uses AWS Amplify Hosting.
 
-## Deploy (AWS Amplify Hosting)
+1. Push this repo to GitHub.
+2. In AWS Amplify Hosting, connect the GitHub repo and choose the branch to deploy.
+3. Use the build command:
 
-The simplest AWS deployment path for this prototype is Amplify Hosting with SSR support.
+```bash
+npm run build
+```
 
-### 1. Connect the repo
-
-- Open AWS Amplify
-- Create a new app
-- Choose your Git provider
-- Select this repository and branch
-
-### 2. Amplify build settings
-
-This repo includes an `amplify.yml` file, so Amplify can use the project build settings directly.
-
-### 3. Add environment variables
-
-Set these in Amplify for the branch you deploy:
+4. Set these environment variables in Amplify:
 
 ```text
-APP_BASE_URL=https://<your-amplify-domain>
-MOCK_MARKETPLACE_WEBHOOK_SECRET=<your-shared-secret>
-NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET=<same-shared-secret>
+APP_BASE_URL=<deployed Amplify URL>
+MOCK_MARKETPLACE_WEBHOOK_SECRET=dev-secret
+NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET=dev-secret
 ```
 
-Important:
+5. Make sure `NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET` matches `MOCK_MARKETPLACE_WEBHOOK_SECRET`.
+6. Configure the Amplify compute IAM role so the deployed server-side Next.js API routes can read and write DynamoDB.
+7. Give that role access to these tables in `us-east-2`:
 
-- `MOCK_MARKETPLACE_WEBHOOK_SECRET` and `NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET` must match
-- `APP_BASE_URL` should be the final deployed Amplify URL or custom domain
+- `Listings`
+- `ActivityFeed`
 
-### 4. Give the SSR runtime access to DynamoDB
-
-Your Amplify SSR compute role must have permission to:
-
-- read and write the `Listings` table
-- read and write the `ActivityFeed` table
-
-This app uses the default AWS credential chain through the Amplify SSR IAM role.
-
-Do not commit or use AWS access keys in this repo for deployment.
-
-You should not add these as Amplify environment variables:
-
-- `APP_AWS_ACCESS_KEY_ID`
-- `APP_AWS_SECRET_ACCESS_KEY`
-
-If the IAM role is configured correctly, the AWS SDK will pick up credentials automatically.
-
-### 5. Deploy
-
-- Save and deploy the branch in Amplify
-- Amplify will install dependencies and run:
-
-```bash
-npm run build
-```
-
----
+8. Do not commit AWS access keys or store long-lived AWS keys in the repo for this app.
+9. Redeploy the Amplify app after the environment variables and IAM role are set.
 
 ## DynamoDB Setup
 
-Create two tables:
+Create these tables in `us-east-2`:
 
 ### `Listings`
 
@@ -162,63 +136,43 @@ Create two tables:
 
 - Primary key: `id` (string)
 
-Make sure your AWS region is:
-
-```text
-us-east-2
-```
-
-For local development, DynamoDB access should come from your normal AWS SDK credentials setup, for example:
-
-- `aws configure`
-- an AWS profile in `~/.aws/credentials`
-- temporary shell credentials
-
----
+In production, DynamoDB access comes from the Amplify compute IAM role. In local development, it comes from your normal AWS credentials setup.
 
 ## How To Use
 
 ### Seller Dashboard (`/`)
 
 - create a listing
-- choose marketplace, Backbook
-- see status and activity
+- choose the marketplace
+- publish to Backbook
+- see listing status and activity
 
 ### Backbook (`/backbook`)
 
 - acts like a fake marketplace
-- shows only published listings
+- shows published listings
 - lets you simulate:
   - sale
   - comments
 
----
-
 ## Mock Event Flow
 
 - Publish has about a 20 percent failure rate.
-- If accepted:
-  - an async comment may come in
-- You can also manually:
-  - simulate a sale
-  - add a comment
+- If accepted, Backbook may send a comment later.
+- You can also manually simulate:
+  - a sale
+  - a comment
 
-These hit:
+These events go to:
 
 ```text
 POST /api/webhooks/mock-marketplace
 ```
 
----
-
 ## Triggering Mock Events
 
-There are two ways to trigger marketplace events:
-
-1. From the Backbook UI (`/backbook`):
-   - Click `Simulate Sale`
-   - Enter and send a comment
-2. Direct API, optional:
+1. From the Backbook UI at `/backbook`
+2. Directly by API:
 
 ```bash
 curl -X POST http://localhost:3000/api/webhooks/mock-marketplace \
@@ -227,11 +181,9 @@ curl -X POST http://localhost:3000/api/webhooks/mock-marketplace \
   -d '{"listingId":"<id>","eventType":"item_sold"}'
 ```
 
----
-
 ## Webhook Security
 
-Uses a shared secret header:
+The webhook uses this shared header:
 
 ```text
 x-mock-marketplace-secret
@@ -243,45 +195,28 @@ It must match:
 MOCK_MARKETPLACE_WEBHOOK_SECRET
 ```
 
-For local development, both server and client-facing webhook secret values default to `dev-secret`.
+For this prototype, `NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET` is set to the same value so the mocked marketplace UI can send test events back to the app.
 
----
+## Cost Estimate
 
-## Cost Notes
-
-- Uses DynamoDB only, which is very low cost at this scale
-- No heavy compute
-- No background queues or long-running jobs used
-- Polling is limited and controlled
-- No large file storage
-
-Estimated cost is near zero per day for this prototype.
-
----
+- Amplify Hosting plus server-side compute stays very cheap at low traffic.
+- DynamoDB on-demand is also very cheap for a prototype at this size.
+- For a one-day prototype or low traffic demo, the cost is basically near zero.
+- The first real cost wall would be high polling or event volume, or heavier image and media uploads.
 
 ## Tear Down
 
-Delete the DynamoDB tables:
+When you are done with the prototype:
 
-- `Listings`
-- `ActivityFeed`
-
----
-
-## Demo
-
-The demo shows:
-
-- creating a listing
-- publish success or failure
-- interacting with Backbook
-- activity feed updating
-
----
+1. Delete the Amplify app.
+2. Delete the DynamoDB tables:
+   - `Listings`
+   - `ActivityFeed`
+3. Remove the IAM role and policy if you no longer need them.
 
 ## Notes
 
-- Images were not included since they are optional
-- Mock marketplace is separated into its own page at `/backbook`
-- Async behavior is simulated
-- Basic idempotency and webhook validation are included
+- Backbook is intentionally separate so it feels like an external marketplace.
+- The backend uses API routes as the boundary between our app and the marketplace flow.
+- Basic webhook validation and idempotency are included.
+- Images were left out because they were optional and not needed for the core demo.
