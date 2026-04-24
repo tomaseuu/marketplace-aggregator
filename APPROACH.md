@@ -174,3 +174,5 @@ The main thing I wanted to show was not just a UI. I wanted to show a clean syst
 - the marketplace sends events back through a webhook
 
 That makes the design easier to extend, easier to reason about, and closer to how a real integration system would be built. But honestly, this was super fun to do!
+
+- Slide Deck to see all diagrams and what I brainstormed first: https://docs.google.com/presentation/d/1Vdlq9_LgatCRse-Py6Djv_7sTH3BSr5Q9a93j7pw7bU/edit?usp=sharing
