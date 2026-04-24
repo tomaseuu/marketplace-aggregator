@@ -25,6 +25,8 @@ const client = new DynamoDBClient({
     secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY || "",
   },
 });
+console.log("ACCESS KEY EXISTS:", !!process.env.APP_AWS_ACCESS_KEY_ID);
+console.log("SECRET KEY EXISTS:", !!process.env.APP_AWS_SECRET_ACCESS_KEY);
 
 const docClient = DynamoDBDocumentClient.from(client);
 
