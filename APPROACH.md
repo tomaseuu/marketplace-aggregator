@@ -48,6 +48,16 @@ That helped keep everything simple and guided all my decisions.
 
 ---
 
+## Architecture
+
+![Architecture Diagram](./images/methodology.png)
+
+## User Flow
+
+![User Flow](./images/userflow.png)
+
+---
+
 ## System Design
 
 I split the system into two parts:
