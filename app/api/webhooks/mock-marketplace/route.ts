@@ -9,17 +9,8 @@ import { v4 as uuidv4 } from "uuid";
 
 // receives marketplace events checks they are allowed and writes them into the seller activity feed
 
-const credentials =
-  process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
-    ? {
-        accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
-      }
-    : undefined;
-
 const client = new DynamoDBClient({
   region: "us-east-2",
-  credentials,
 });
 
 const docClient = DynamoDBDocumentClient.from(client);

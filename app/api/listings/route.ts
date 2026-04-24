@@ -10,23 +10,9 @@ import { v4 as uuidv4 } from "uuid";
 
 // creates reads updates and deletes seller listings and starts the mock publish flow
 
-const credentials =
-  process.env.APP_AWS_ACCESS_KEY_ID && process.env.APP_AWS_SECRET_ACCESS_KEY
-    ? {
-        accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID,
-        secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY,
-      }
-    : undefined;
-
 const client = new DynamoDBClient({
   region: "us-east-2",
-  credentials: {
-    accessKeyId: process.env.APP_AWS_ACCESS_KEY_ID || "",
-    secretAccessKey: process.env.APP_AWS_SECRET_ACCESS_KEY || "",
-  },
 });
-console.log("ACCESS KEY EXISTS:", !!process.env.APP_AWS_ACCESS_KEY_ID);
-console.log("SECRET KEY EXISTS:", !!process.env.APP_AWS_SECRET_ACCESS_KEY);
 
 const docClient = DynamoDBDocumentClient.from(client);
 
