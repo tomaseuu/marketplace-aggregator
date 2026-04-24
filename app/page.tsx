@@ -1,5 +1,7 @@
 "use client";
 
+// lets the seller make listings see what happened to them and check new activity
+
 import { useEffect, useRef, useState } from "react";
 
 type Listing = {
@@ -189,7 +191,9 @@ function ListingCard({
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(listing.title);
   const [editDescription, setEditDescription] = useState(listing.description);
-  const [editPrice, setEditPrice] = useState(formatPriceInput(String(listing.price)));
+  const [editPrice, setEditPrice] = useState(
+    formatPriceInput(String(listing.price)),
+  );
   const [editCondition, setEditCondition] = useState(
     listing.condition ?? "used_good",
   );
@@ -432,7 +436,10 @@ function ListingCard({
                 }
               }}
               onBlur={() => {
-                if (editPrice !== "" && !Number.isNaN(parsePriceValue(editPrice))) {
+                if (
+                  editPrice !== "" &&
+                  !Number.isNaN(parsePriceValue(editPrice))
+                ) {
                   setEditPrice(`$${parsePriceValue(editPrice).toFixed(2)}`);
                 }
               }}
@@ -718,7 +725,8 @@ function ListingCard({
                     ? "1px solid #60a5fa"
                     : "1px solid transparent",
                 borderRadius: "12px",
-                padding: highlightedActivityId === item.id ? "12px" : "12px 0 0",
+                padding:
+                  highlightedActivityId === item.id ? "12px" : "12px 0 0",
                 paddingTop: "12px",
                 marginTop: "12px",
                 borderTop:
@@ -789,15 +797,17 @@ export default function Home() {
     Record<string, ActivityItem[]>
   >({});
   const [unreadActivityIds, setUnreadActivityIds] = useState<string[]>([]);
-  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(
-    null,
-  );
+  const [highlightedActivityId, setHighlightedActivityId] = useState<
+    string | null
+  >(null);
   const [showActivityPanel, setShowActivityPanel] = useState(false);
   const isMountedRef = useRef(false);
   const isSyncingRef = useRef(false);
   const hasHydratedNotificationsRef = useRef(false);
   const knownActivityIdsRef = useRef<Set<string>>(new Set());
-  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const { isMobile, isTablet } = useViewport();
   const marketplaceOptions = [
     { key: "backbook", label: "Backbook", enabled: true },
@@ -842,12 +852,17 @@ export default function Home() {
 
             items.sort(
               (a, b) =>
-                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+                new Date(b.createdAt).getTime() -
+                new Date(a.createdAt).getTime(),
             );
 
             return [listing.id, items] as const;
           } catch (error) {
-            console.error("Failed to fetch activity for listing:", listing.id, error);
+            console.error(
+              "Failed to fetch activity for listing:",
+              listing.id,
+              error,
+            );
             return [listing.id, []] as const;
           }
         }),
@@ -919,7 +934,9 @@ export default function Home() {
   const [price, setPrice] = useState("");
   const [condition, setCondition] = useState("");
   const [formError, setFormError] = useState("");
-  const [selectedMarketplaces, setSelectedMarketplaces] = useState<string[]>([]);
+  const [selectedMarketplaces, setSelectedMarketplaces] = useState<string[]>(
+    [],
+  );
 
   const toggleMarketplace = (marketplace: string) => {
     setSelectedMarketplaces((current) =>
@@ -982,7 +999,9 @@ export default function Home() {
     return true;
   });
 
-  const activityFeedItems: NotificationItem[] = Object.entries(activityByListing)
+  const activityFeedItems: NotificationItem[] = Object.entries(
+    activityByListing,
+  )
     .flatMap(([listingId, items]) =>
       items.map((item) => ({
         ...item,
@@ -1010,7 +1029,9 @@ export default function Home() {
     }
 
     highlightTimeoutRef.current = setTimeout(() => {
-      setHighlightedActivityId((current) => (current === item.id ? null : current));
+      setHighlightedActivityId((current) =>
+        current === item.id ? null : current,
+      );
     }, LISTING_HIGHLIGHT_DURATION_MS);
 
     const targetElement =
@@ -1273,8 +1294,7 @@ export default function Home() {
                     borderRadius: "999px",
                     background:
                       notificationItems.length > 0 ? "#ef4444" : "#f5f5f4",
-                    color:
-                      notificationItems.length > 0 ? "#ffffff" : "#78716c",
+                    color: notificationItems.length > 0 ? "#ffffff" : "#78716c",
                     fontSize: "12px",
                     fontWeight: 700,
                     padding: "0 6px",

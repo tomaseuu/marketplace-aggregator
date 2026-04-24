@@ -1,6 +1,8 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, ScanCommand } from "@aws-sdk/lib-dynamodb";
 
+// this route reads activity feed items so the seller dashboard can show what happened
+
 type ActivityRecord = {
   createdAt?: string;
 };

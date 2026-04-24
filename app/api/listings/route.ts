@@ -8,6 +8,8 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 
+// creates reads updates and deletes seller listings and starts the mock publish flow
+
 const client = new DynamoDBClient({
   region: "us-east-2",
 });

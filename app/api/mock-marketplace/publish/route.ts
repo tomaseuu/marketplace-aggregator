@@ -6,6 +6,8 @@ type PublishRequest = {
   idempotencyKey?: string;
 };
 
+// acts like the fake marketplace publish endpoint and may accept fail or send later comments back
+
 const BUYER_COMMENTS = [
   "How much is it?",
   "Would you be willing to meet at a different price?",
@@ -34,9 +36,9 @@ function shouldSendBuyerComment(): boolean {
 
 function getNextBuyerComment(listingId: string): string {
   const lastIndex = lastCommentIndexByListing.get(listingId);
-  const availableIndexes = BUYER_COMMENTS
-    .map((_, index) => index)
-    .filter((index) => index !== lastIndex);
+  const availableIndexes = BUYER_COMMENTS.map((_, index) => index).filter(
+    (index) => index !== lastIndex,
+  );
   const nextIndex =
     availableIndexes[Math.floor(Math.random() * availableIndexes.length)];
 
@@ -85,7 +87,8 @@ export async function POST(request: Request): Promise<Response> {
     return Response.json(
       {
         success: false,
-        message: "Missing required fields: listingId, title, description, price",
+        message:
+          "Missing required fields: listingId, title, description, price",
       },
       { status: 400 },
     );
@@ -105,10 +108,18 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (shouldSendBuyerComment()) {
-    sendBuyerComment(listingId, getNextBuyerComment(listingId), getInitialDelay());
+    sendBuyerComment(
+      listingId,
+      getNextBuyerComment(listingId),
+      getInitialDelay(),
+    );
 
     if (Math.random() < 0.35) {
-      sendBuyerComment(listingId, getNextBuyerComment(listingId), getFollowUpDelay());
+      sendBuyerComment(
+        listingId,
+        getNextBuyerComment(listingId),
+        getFollowUpDelay(),
+      );
     }
   }
 

@@ -3,6 +3,7 @@
 This is a simple full-stack prototype where a seller can create a listing, send it to a mock marketplace (Backbook), and then receive events back like comments or a sale.
 
 The goal of this project is to show a clean system where we:
+
 - create listings
 - send them to an external marketplace
 - react to events coming back
@@ -58,6 +59,12 @@ MOCK_MARKETPLACE_WEBHOOK_SECRET=dev-secret
 NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET=dev-secret
 ```
 
+Note:
+In deployment, both of these must match:
+
+- `MOCK_MARKETPLACE_WEBHOOK_SECRET`
+- `NEXT_PUBLIC_MOCK_MARKETPLACE_WEBHOOK_SECRET`
+
 4. Run the app.
 
 ```bash
@@ -69,6 +76,18 @@ npm run dev
 ```text
 http://localhost:3000
 ```
+
+---
+
+## Build
+
+To verify the project builds:
+
+```bash
+npm run build
+```
+
+This uses the webpack build path to ensure stability.
 
 ---
 
@@ -127,6 +146,24 @@ POST /api/webhooks/mock-marketplace
 
 ---
 
+## Triggering Mock Events
+
+There are two ways to trigger marketplace events:
+
+1. From the Backbook UI (`/backbook`):
+   - Click `Simulate Sale`
+   - Enter and send a comment
+2. Direct API, optional:
+
+```bash
+curl -X POST http://localhost:3000/api/webhooks/mock-marketplace \
+  -H "Content-Type: application/json" \
+  -H "x-mock-marketplace-secret: dev-secret" \
+  -d '{"listingId":"<id>","eventType":"item_sold"}'
+```
+
+---
+
 ## Webhook Security
 
 Uses a shared secret header:
@@ -149,6 +186,7 @@ For local development, both server and client-facing webhook secret values defau
 
 - Uses DynamoDB only, which is very low cost at this scale
 - No heavy compute
+- No background queues or long-running jobs used
 - Polling is limited and controlled
 - No large file storage
 

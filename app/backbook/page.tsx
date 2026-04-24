@@ -1,5 +1,7 @@
 "use client";
 
+// acts like the fake marketplace where accepted listings show up and where sale or comment events get sent back
+
 import { useEffect, useState } from "react";
 
 type Listing = {
@@ -105,10 +107,10 @@ function PressableButton({
         boxShadow: disabled
           ? "none"
           : isPressed
-          ? "0 2px 6px rgba(24, 119, 242, 0.12)"
-          : primary
-            ? "0 6px 14px rgba(24, 119, 242, 0.18)"
-            : "0 4px 10px rgba(24, 119, 242, 0.08)",
+            ? "0 2px 6px rgba(24, 119, 242, 0.12)"
+            : primary
+              ? "0 6px 14px rgba(24, 119, 242, 0.18)"
+              : "0 4px 10px rgba(24, 119, 242, 0.08)",
         transition: "transform 120ms ease, box-shadow 120ms ease",
         width: fullWidth ? "100%" : "auto",
       }}
@@ -120,11 +122,13 @@ function PressableButton({
 
 export default function BackbookPage() {
   const [listings, setListings] = useState<Listing[]>([]);
-  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>(
+    {},
+  );
   const [selectedTab, setSelectedTab] = useState<BackbookTab>("active");
   const { isMobile, isTablet } = useViewport();
-  const publishedListings = listings.filter((listing) =>
-    listing.status === "published" || listing.status === "sold",
+  const publishedListings = listings.filter(
+    (listing) => listing.status === "published" || listing.status === "sold",
   );
   const activeListings = publishedListings.filter(
     (listing) => listing.status !== "sold",
@@ -273,7 +277,11 @@ export default function BackbookPage() {
           }}
         >
           {[
-            { key: "active" as const, label: "Active Listings", count: activeListings.length },
+            {
+              key: "active" as const,
+              label: "Active Listings",
+              count: activeListings.length,
+            },
             { key: "sold" as const, label: "Sold", count: soldListings.length },
           ].map((tab) => {
             const isSelected = selectedTab === tab.key;

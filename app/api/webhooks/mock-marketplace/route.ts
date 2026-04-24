@@ -7,6 +7,8 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 
+// receives marketplace events checks they are allowed and writes them into the seller activity feed
+
 const client = new DynamoDBClient({
   region: "us-east-2",
 });
@@ -56,10 +58,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (!ALLOWED_EVENT_TYPES.has(eventType)) {
-    return Response.json(
-      { error: "Unsupported eventType" },
-      { status: 400 },
-    );
+    return Response.json({ error: "Unsupported eventType" }, { status: 400 });
   }
 
   const resolvedMessage = message || getDefaultMessage(eventType);
