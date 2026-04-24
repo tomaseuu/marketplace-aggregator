@@ -87,28 +87,61 @@ export async function POST(request: Request): Promise<Response> {
       let publishAccepted = false;
 
       try {
-        const publishResponse = await fetch(
-          `${getAppBaseUrl(request)}/api/mock-marketplace/publish`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              listingId: newItem.id,
-              title,
-              description,
-              price,
-              idempotencyKey: newItem.id,
-            }),
+        const appBaseUrl = getAppBaseUrl(request);
+        const publishUrl = `${appBaseUrl}/api/mock-marketplace/publish`;
+
+        console.log("Resolved APP_BASE_URL for publish:", appBaseUrl);
+        console.log("Mock marketplace publish URL:", publishUrl);
+
+        const publishResponse = await fetch(publishUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify({
+            listingId: newItem.id,
+            title,
+            description,
+            price,
+            idempotencyKey: newItem.id,
+          }),
+        });
+        const publishResponseBody = await publishResponse.text();
+
+        console.log(
+          "Mock marketplace publish response status:",
+          publishResponse.status,
+        );
+        console.log(
+          "Mock marketplace publish response body:",
+          publishResponseBody,
         );
 
-        const publishResult = await publishResponse.json();
+        let publishResult: { success?: boolean; status?: string } = {};
+
+        try {
+          publishResult = JSON.parse(publishResponseBody) as {
+            success?: boolean;
+            status?: string;
+          };
+        } catch (parseError) {
+          console.error(
+            "Mock marketplace publish response was not valid JSON:",
+            parseError,
+          );
+        }
+
         publishAccepted =
           publishResponse.ok &&
           publishResult.success === true &&
           publishResult.status === "accepted";
+
+        if (!publishAccepted) {
+          console.error("Mock marketplace publish was not accepted:", {
+            status: publishResponse.status,
+            body: publishResponseBody,
+          });
+        }
       } catch (error) {
         console.error("Mock marketplace publish error:", error);
       }
